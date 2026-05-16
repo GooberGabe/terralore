@@ -1,73 +1,97 @@
-# React + TypeScript + Vite
+# Terralore
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Terralore is a geography-first history experience. A user drops a pin on the map, and the app returns a curated timeline of historically significant events for that location.
 
-Currently, two official plugins are available:
+## Current Status
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- Frontend scaffolded with React + TypeScript + Vite
+- Backend scaffolded with Node.js + Express
+- Shared domain types established for timeline and location contracts
+- Linting and formatting standardized with ESLint + Prettier
 
-## React Compiler
+## Product Vision
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+1. Convert coordinates into location context via reverse geocoding.
+2. Generate high-signal local history timelines with an LLM.
+3. Cache results to reduce latency and provider cost.
+4. Present results in a polished, exploration-first UI.
 
-## Expanding the ESLint configuration
+## Tech Stack
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+- Frontend: React, TypeScript, Vite
+- Backend: Express, TypeScript
+- APIs and AI (planned): Google Geocoding API, Anthropic Claude
+- Caching and persistence (planned): Firebase Firestore
+- Tooling: pnpm, ESLint, Prettier
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+## Repository Layout
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```text
+.
+|- src/
+|  |- App.tsx
+|  |- main.tsx
+|  |- types/
+|  |  |- index.ts
+|- server/
+|  |- src/
+|  |  |- index.ts
+|  |  |- routes/
+|  |  |- middleware/
+|  |  |- services/
+|  |  |- providers/
+|  |  |- cache/
+|  |  |- config/
+|- AGENTS.md
+|- code-audit-checklist.md
+|- FUNCTIONAL_REQUIREMENTS.md
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+## Development Commands
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+- `pnpm dev`: start frontend dev server
+- `pnpm dev:server`: start backend server in watch mode
+- `pnpm dev:full`: run frontend and backend together
+- `pnpm build`: typecheck and build frontend bundle
+- `pnpm typecheck`: run TypeScript project checks
+- `pnpm lint`: run ESLint with zero warnings allowed
+- `pnpm lint:fix`: auto-fix lint issues where possible
+- `pnpm format`: apply Prettier formatting
+- `pnpm format:check`: verify formatting
+- `pnpm preview`: preview production frontend build
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+## Backend Endpoints (Current)
+
+- `GET /health`: service health check
+- `GET /api/timeline`: scaffolded endpoint (currently returns 501 Not Implemented)
+
+## Environment Variables
+
+Backend server supports:
+
+- `PORT`: server port (default `8787`)
+- `NODE_ENV`: `development`, `test`, or `production`
+
+Planned provider variables (not yet wired):
+
+- `GOOGLE_MAPS_API_KEY`
+- `ANTHROPIC_API_KEY`
+- `FIREBASE_PROJECT_ID` and related service credentials
+
+## Architecture Notes
+
+- Browser must never call LLM providers directly.
+- API keys must never be exposed client-side.
+- Cache should be checked before geocoding or LLM calls.
+- Provider logic should stay behind service/provider interfaces.
+
+See [AGENTS.md](AGENTS.md) for project conventions and commit format.
+See [FUNCTIONAL_REQUIREMENTS.md](FUNCTIONAL_REQUIREMENTS.md) for product-level requirements.
+
+## Next Milestones
+
+1. Implement timeline service orchestration in backend.
+2. Add geocoding and LLM provider adapters.
+3. Implement cache-first flow.
+4. Connect frontend map interactions to backend timeline endpoint.
+5. Add tests for contracts and service behavior.
