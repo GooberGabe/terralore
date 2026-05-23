@@ -18,6 +18,7 @@ export interface HistoricalEvent {
   title: string
   summary: string
   dateLabel: string
+  year: number
   startDate?: ISODateString
   endDate?: ISODateString
   confidence: number

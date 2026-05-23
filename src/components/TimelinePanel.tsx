@@ -46,8 +46,8 @@ export function TimelinePanel({ loading, error, timeline }: TimelinePanelProps) 
         <p className="timeline-panel__empty-events">No events found for this location.</p>
       ) : (
         <ol className="timeline-panel__list">
-          {events.map((event) => (
-            <li key={event.id}>
+          {events.map((event, index) => (
+            <li key={event.id} data-event-index={index}>
               <TimelineCard event={event} />
             </li>
           ))}

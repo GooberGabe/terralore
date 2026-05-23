@@ -41,6 +41,8 @@ export class TimelineServiceImpl implements TimelineService {
     })
 
     const rawEvents = await this.llmProvider.generateTimeline({
+      lat: input.lat,
+      lng: input.lng,
       placeLabel: location.placeLabel,
       city: location.city,
       region: location.region,
@@ -54,6 +56,7 @@ export class TimelineServiceImpl implements TimelineService {
       title: e.title,
       summary: e.summary,
       dateLabel: e.dateLabel,
+      year: e.year,
       confidence: e.confidence,
       significanceScore: e.significanceScore,
       sources: e.sources,

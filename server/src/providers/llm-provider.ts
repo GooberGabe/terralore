@@ -1,6 +1,8 @@
 import Anthropic from '@anthropic-ai/sdk'
 
 export interface TimelinePromptInput {
+  lat: number
+  lng: number
   placeLabel: string
   city?: string
   region?: string
@@ -98,7 +100,12 @@ export class AnthropicLlmProvider implements LlmProvider {
     const specificityInstruction = zoomToSpecificityInstruction(input.zoom)
 
     const userPrompt =
-      `Generate a timeline of up to ${input.maxEvents} historically significant events for: ${locationContext}.\n` +
+      `Generate a timeline of up to ${input.maxEvents} historically significant events for this exact location:\n` +
+      `  Name: ${locationContext}\n` +
+      `  Coordinates: ${input.lat.toFixed(4)}°, ${input.lng.toFixed(4)}°\n\n` +
+      `CRITICAL: Only include events that genuinely occurred at or directly relate to this specific geographic location. ` +
+      `Do not substitute, conflate, or draw from a different region because this location seems unfamiliar or sparsely documented. ` +
+      `If fewer significant events are known for this exact area, return only those — do not pad with events from elsewhere.\n\n` +
       `${specificityInstruction} ` +
       `Rank events by historical significance. ` +
       `Include a mix of eras when applicable.`
@@ -113,7 +120,9 @@ export class AnthropicLlmProvider implements LlmProvider {
           model: this.model,
           max_tokens: 4096,
           system:
-            'You are a historical research assistant. Provide accurate, well-sourced historical events for the requested location. ' +
+            'You are a historical research assistant. Your job is to provide accurate historical events strictly for the geographic location given by the user. ' +
+            'You must NEVER substitute a different location — even if the requested location has sparse historical documentation, remote terrain, or is largely uninhabited. ' +
+            'If a location has limited recorded history, return only the events you can genuinely attribute to it; do not borrow events from nearby or more famous places. ' +
             'Only include events with a reasonable confidence in their historical accuracy. ' +
             'You must use the provided tool to submit your response.',
           tools: [TIMELINE_TOOL],
