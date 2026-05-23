@@ -29,6 +29,7 @@ export interface TimelineRequest {
   coordinates: Coordinates
   locale?: string
   maxEvents?: number
+  zoom?: number
 }
 
 export interface TimelineResponse {

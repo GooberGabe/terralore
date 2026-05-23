@@ -1,101 +1,68 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import heroImg from './assets/hero.png'
+import { AdvancedMarker, APIProvider, Map } from '@vis.gl/react-google-maps'
+import { useCallback, useState } from 'react'
+
+import { LocationBadge } from './components/LocationBadge.js'
+import { TimelinePanel } from './components/TimelinePanel.js'
+import { fetchTimeline } from './services/timelineApi.js'
+import type { Coordinates, TimelineResponse } from './types/index.js'
 import './App.css'
 
+const MAPS_API_KEY = import.meta.env['VITE_GOOGLE_MAPS_API_KEY'] as string
+
 function App() {
-  const [count, setCount] = useState(0)
+  const [pin, setPin] = useState<Coordinates | null>(null)
+  const [zoom, setZoom] = useState(2)
+  const [timeline, setTimeline] = useState<TimelineResponse | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
+  const handleMapClick = useCallback(
+    (ev: { detail: { latLng: { lat: number; lng: number } | null } }) => {
+      const latLng = ev.detail.latLng
+      if (!latLng) return
+
+      const coords: Coordinates = { lat: latLng.lat, lng: latLng.lng }
+      setPin(coords)
+      setTimeline(null)
+      setError(null)
+      setLoading(true)
+
+      fetchTimeline({ coordinates: coords, zoom })
+        .then((result) => {
+          setTimeline(result)
+        })
+        .catch((err: unknown) => {
+          setError(err instanceof Error ? err.message : 'Something went wrong')
+        })
+        .finally(() => {
+          setLoading(false)
+        })
+    },
+    [zoom],
+  )
   return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.tsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button type="button" className="counter" onClick={() => setCount((count) => count + 1)}>
-          Count is {count}
-        </button>
-      </section>
+    <div className="app">
+      <APIProvider apiKey={MAPS_API_KEY}>
+        <Map
+          className="app__map"
+          defaultCenter={{ lat: 20, lng: 10 }}
+          defaultZoom={2}
+          gestureHandling="greedy"
+          mapId="terralore-map"
+          onClick={handleMapClick}
+          onCameraChanged={(ev: { detail: { zoom: number } }) => {
+            setZoom(Math.round(ev.detail.zoom))
+          }}
+        >
+          {pin && <AdvancedMarker position={pin} />}
+        </Map>
+      </APIProvider>
 
-      <div className="ticks"></div>
-
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg className="button-icon" role="presentation" aria-hidden="true">
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg className="button-icon" role="presentation" aria-hidden="true">
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg className="button-icon" role="presentation" aria-hidden="true">
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg className="button-icon" role="presentation" aria-hidden="true">
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
-
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
+      <aside className="app__sidebar">
+        {pin && <LocationBadge coordinates={pin} location={timeline?.location ?? null} />}
+        <TimelinePanel loading={loading} error={error} timeline={timeline} />
+      </aside>
+    </div>
   )
 }
 

@@ -4,10 +4,12 @@ Terralore is a geography-first history experience. A user drops a pin on the map
 
 ## Current Status
 
-- Frontend scaffolded with React + TypeScript + Vite
-- Backend scaffolded with Node.js + Express
-- Shared domain types established for timeline and location contracts
-- Linting and formatting standardized with ESLint + Prettier
+- Interactive world map (Google Maps) with pin placement
+- Reverse geocoding via Google Geocoding API (server-side)
+- Historical timeline generation via Anthropic Claude (server-side)
+- In-memory timeline cache with 24-hour TTL
+- Full request validation and structured error responses
+- Shared TypeScript contracts across frontend and backend
 
 ## Product Vision
 
@@ -18,10 +20,10 @@ Terralore is a geography-first history experience. A user drops a pin on the map
 
 ## Tech Stack
 
-- Frontend: React, TypeScript, Vite
+- Frontend: React, TypeScript, Vite, `@vis.gl/react-google-maps`
 - Backend: Express, TypeScript
-- APIs and AI (planned): Google Geocoding API, Anthropic Claude
-- Caching and persistence (planned): Firebase Firestore
+- APIs and AI: Google Geocoding API, Anthropic Claude
+- Caching (current): in-memory with TTL; (planned) Firebase Firestore
 - Tooling: pnpm, ESLint, Prettier
 
 ## Repository Layout
@@ -31,6 +33,12 @@ Terralore is a geography-first history experience. A user drops a pin on the map
 |- src/
 |  |- App.tsx
 |  |- main.tsx
+|  |- components/
+|  |  |- LocationBadge.tsx
+|  |  |- TimelineCard.tsx
+|  |  |- TimelinePanel.tsx
+|  |- services/
+|  |  |- timelineApi.ts
 |  |- types/
 |  |  |- index.ts
 |- server/
@@ -63,20 +71,24 @@ Terralore is a geography-first history experience. A user drops a pin on the map
 ## Backend Endpoints (Current)
 
 - `GET /health`: service health check
-- `GET /api/timeline`: scaffolded endpoint (currently returns 501 Not Implemented)
+- `POST /api/timeline`: accepts `{ lat, lng, maxEvents?, locale? }`, returns a `TimelineResponse`
 
 ## Environment Variables
 
-Backend server supports:
+Copy `.env.example` to `.env` and fill in the required values.
+
+Backend (server):
 
 - `PORT`: server port (default `8787`)
 - `NODE_ENV`: `development`, `test`, or `production`
+- `GOOGLE_GEOCODING_API_KEY`: **required** — Google Geocoding API key
+- `ANTHROPIC_API_KEY`: **required** — Anthropic API key
+- `ANTHROPIC_MODEL`: optional, defaults to `claude-3-5-sonnet-20241022`
 
-Planned provider variables (not yet wired):
+Frontend (Vite, must be prefixed `VITE_`):
 
-- `GOOGLE_MAPS_API_KEY`
-- `ANTHROPIC_API_KEY`
-- `FIREBASE_PROJECT_ID` and related service credentials
+- `VITE_GOOGLE_MAPS_API_KEY`: **required** — Google Maps JavaScript API key
+- `VITE_API_BASE_URL`: optional, defaults to `http://localhost:8787`
 
 ## Architecture Notes
 
