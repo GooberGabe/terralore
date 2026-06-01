@@ -1,6 +1,7 @@
 export interface ReverseGeocodeInput {
   lat: number
   lng: number
+  zoom?: number
 }
 
 export interface GeocodedLocation {
@@ -8,6 +9,7 @@ export interface GeocodedLocation {
   city?: string
   region?: string
   country?: string
+  pointOfInterest?: string
 }
 
 export interface GeocodingProvider {
@@ -25,6 +27,7 @@ interface GoogleAddressComponent {
 interface GoogleGeocodeResult {
   formatted_address: string
   address_components: GoogleAddressComponent[]
+  types: string[]
 }
 
 interface GoogleGeocodeResponse {
@@ -67,9 +70,23 @@ export class GoogleGeocodingProvider implements GeocodingProvider {
       throw new Error(`Geocoding failed: ${data.status}`)
     }
 
-    return normalizeGeocodeResult(data.results[0])
+    return normalizeGeocodeResult(data.results, input.zoom)
   }
 }
+
+const POI_TYPES = new Set([
+  'establishment',
+  'point_of_interest',
+  'natural_feature',
+  'park',
+  'premise',
+  'tourist_attraction',
+  'museum',
+  'place_of_worship',
+  'university',
+  'hospital',
+  'stadium',
+])
 
 function getComponent(
   components: GoogleAddressComponent[],
@@ -78,8 +95,12 @@ function getComponent(
   return components.find((c) => c.types.includes(type))?.long_name
 }
 
-function normalizeGeocodeResult(result: GoogleGeocodeResult): GeocodedLocation {
-  const components = result.address_components
+function normalizeGeocodeResult(
+  results: GoogleGeocodeResult[],
+  zoom?: number,
+): GeocodedLocation {
+  const primary = results[0]
+  const components = primary.address_components
   const city =
     getComponent(components, 'locality') ??
     getComponent(components, 'sublocality') ??
@@ -87,10 +108,23 @@ function normalizeGeocodeResult(result: GoogleGeocodeResult): GeocodedLocation {
   const region = getComponent(components, 'administrative_area_level_1')
   const country = getComponent(components, 'country')
 
+  let pointOfInterest: string | undefined
+  if (zoom !== undefined && zoom > 13) {
+    const poiResult = results.find((r) => r.types.some((t) => POI_TYPES.has(t)))
+    if (poiResult) {
+      const firstName = poiResult.formatted_address.split(',')[0].trim()
+      // Only use if it looks like a named place, not a bare street number
+      if (firstName && !/^\d+\s/.test(firstName) && !/^\d+$/.test(firstName)) {
+        pointOfInterest = firstName
+      }
+    }
+  }
+
   return {
-    placeLabel: result.formatted_address,
+    placeLabel: primary.formatted_address,
     city,
     region,
     country,
+    pointOfInterest,
   }
 }

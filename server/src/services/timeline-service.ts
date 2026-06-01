@@ -38,6 +38,7 @@ export class TimelineServiceImpl implements TimelineService {
     const location = await this.geocodingProvider.reverseGeocode({
       lat: input.lat,
       lng: input.lng,
+      zoom: input.zoom,
     })
 
     const rawEvents = await this.llmProvider.generateTimeline({
@@ -47,6 +48,7 @@ export class TimelineServiceImpl implements TimelineService {
       city: location.city,
       region: location.region,
       country: location.country,
+      pointOfInterest: location.pointOfInterest,
       maxEvents,
       zoom: input.zoom,
     })
@@ -68,6 +70,7 @@ export class TimelineServiceImpl implements TimelineService {
       city: location.city,
       region: location.region,
       country: location.country,
+      pointOfInterest: location.pointOfInterest,
     }
 
     const response: TimelineResponse = {
@@ -90,12 +93,40 @@ export class TimelineServiceImpl implements TimelineService {
 }
 
 /**
- * Rounds coordinates to ~1km precision to group nearby pins into the same cache bucket.
- * Zoom is bucketed into four specificity tiers so minor zoom changes don't bust the cache.
+ * Rounds coordinates to a precision matched to the zoom scope, then appends a scope bucket letter.
+ * Coarse precision (1 decimal, ~11 km) at continental/national zoom prevents fragmenting the cache
+ * when the user is panning a world-level view. Fine precision (4 decimals, ~11 m) at POI zoom
+ * ensures adjacent buildings get distinct cache entries.
+ *
+ * Scope buckets:
+ *   w = world/continental  (zoom 0-2)
+ *   n = national           (zoom 3-5)
+ *   r = regional           (zoom 6-8)
+ *   c = city               (zoom 9-11)
+ *   l = local/neighborhood (zoom 12-14)
+ *   p = point-of-interest  (zoom 15+)
  */
 function buildCacheKey(lat: number, lng: number, maxEvents: number, zoom: number | undefined): string {
-  const roundedLat = Math.round(lat * 100) / 100
-  const roundedLng = Math.round(lng * 100) / 100
-  const zoomBucket = zoom === undefined || zoom <= 5 ? 'r' : zoom <= 9 ? 'c' : zoom <= 13 ? 'l' : 'h'
-  return `timeline:${roundedLat}:${roundedLng}:${maxEvents}:${zoomBucket}`
+  const bucket = zoomToScopeBucket(zoom)
+  const precision = zoomToCoordPrecision(zoom)
+  const factor = Math.pow(10, precision)
+  const roundedLat = Math.round(lat * factor) / factor
+  const roundedLng = Math.round(lng * factor) / factor
+  return `timeline:${roundedLat}:${roundedLng}:${maxEvents}:${bucket}`
+}
+
+function zoomToScopeBucket(zoom: number | undefined): string {
+  if (zoom === undefined || zoom <= 2) return 'w'
+  if (zoom <= 5) return 'n'
+  if (zoom <= 8) return 'r'
+  if (zoom <= 11) return 'c'
+  if (zoom <= 14) return 'l'
+  return 'p'
+}
+
+function zoomToCoordPrecision(zoom: number | undefined): number {
+  if (zoom === undefined || zoom <= 5) return 1  // ~11 km
+  if (zoom <= 11) return 2                       // ~1 km
+  if (zoom <= 14) return 3                       // ~110 m
+  return 4                                       // ~11 m
 }

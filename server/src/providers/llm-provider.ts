@@ -7,6 +7,7 @@ export interface TimelinePromptInput {
   city?: string
   region?: string
   country?: string
+  pointOfInterest?: string
   maxEvents: number
   zoom?: number
 }
@@ -96,13 +97,18 @@ export class AnthropicLlmProvider implements LlmProvider {
     const locationParts = [input.city, input.region, input.country].filter(Boolean)
     const locationContext =
       locationParts.length > 0 ? `${input.placeLabel} (${locationParts.join(', ')})` : input.placeLabel
+    const poiLine = input.pointOfInterest
+      ? `  Point of Interest: ${input.pointOfInterest}\n`
+      : ''
 
     const specificityInstruction = zoomToSpecificityInstruction(input.zoom)
 
     const userPrompt =
       `Generate a timeline of up to ${input.maxEvents} historically significant events for this exact location:\n` +
       `  Name: ${locationContext}\n` +
-      `  Coordinates: ${input.lat.toFixed(4)}°, ${input.lng.toFixed(4)}°\n\n` +
+      `  Coordinates: ${input.lat.toFixed(4)}°, ${input.lng.toFixed(4)}°\n` +
+      poiLine +
+      `\n` +
       `CRITICAL: Only include events that genuinely occurred at or directly relate to this specific geographic location. ` +
       `Do not substitute, conflate, or draw from a different region because this location seems unfamiliar or sparsely documented. ` +
       `If fewer significant events are known for this exact area, return only those — do not pad with events from elsewhere.\n\n` +
@@ -153,14 +159,20 @@ export class AnthropicLlmProvider implements LlmProvider {
 }
 
 function zoomToSpecificityInstruction(zoom: number | undefined): string {
-  if (zoom === undefined || zoom <= 5) {
-    return 'Focus on broad continental or regional historical events and civilizations.'
+  if (zoom === undefined || zoom <= 2) {
+    return 'Focus on broad continental and world-historical civilizations and events for this region of the globe — ancient empires, migration epochs, and turning points that shaped this part of the world.'
   }
-  if (zoom <= 9) {
-    return 'Focus on national and regional historical events for this country or territory.'
+  if (zoom <= 5) {
+    return 'Focus on the national history of the country at these coordinates — major political events, wars, founding moments, and nationally significant cultural milestones.'
   }
-  if (zoom <= 13) {
-    return 'Focus on city-level and local historical events — founding, major local events, cultural significance.'
+  if (zoom <= 8) {
+    return 'Focus on regional history at the state, province, or territory level — locally significant events, regional conflicts, economic development, and the cultural history of this region.'
   }
-  return 'Focus on hyperlocal history — specific neighborhoods, landmarks, buildings, or streets at or near this exact location.'
+  if (zoom <= 11) {
+    return 'Focus on city and town history — the founding and growth of this settlement, major local events, notable figures from this city, and culturally significant local milestones.'
+  }
+  if (zoom <= 14) {
+    return 'Focus on hyperlocal history — specific neighborhoods, districts, historical streets, and known landmarks at or near this exact location.'
+  }
+  return 'Focus on the specific building, monument, park, institution, or site at or nearest to these exact coordinates. Identify what is physically present at this location and describe its history in detail — when it was built or established, notable events that occurred there, and its historical significance.'
 }

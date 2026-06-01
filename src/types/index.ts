@@ -11,6 +11,7 @@ export interface LocationContext {
   region?: string
   country?: string
   placeLabel: string
+  pointOfInterest?: string
 }
 
 export interface HistoricalEvent {
