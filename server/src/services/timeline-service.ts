@@ -2,6 +2,7 @@ import type { HistoricalEvent, LocationContext, TimelineResponse } from '../../.
 import type { TimelineCache } from '../cache/timeline-cache.js'
 import type { GeocodingProvider } from '../providers/geocoding-provider.js'
 import type { LlmProvider } from '../providers/llm-provider.js'
+import { estimateEventCount } from '../lib/event-count.js'
 
 export interface BuildTimelineInput {
   lat: number
@@ -15,7 +16,6 @@ export interface TimelineService {
   buildTimeline(input: BuildTimelineInput): Promise<TimelineResponse>
 }
 
-const DEFAULT_MAX_EVENTS = 10
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000 // 24 hours
 
 export class TimelineServiceImpl implements TimelineService {
@@ -26,7 +26,16 @@ export class TimelineServiceImpl implements TimelineService {
   ) {}
 
   async buildTimeline(input: BuildTimelineInput): Promise<TimelineResponse> {
-    const maxEvents = input.maxEvents ?? DEFAULT_MAX_EVENTS
+    // Geocode first so place types are available for event-count estimation.
+    const location = await this.geocodingProvider.reverseGeocode({
+      lat: input.lat,
+      lng: input.lng,
+      zoom: input.zoom,
+    })
+
+    const maxEvents =
+      input.maxEvents ?? estimateEventCount(location.placeTypes, input.zoom)
+
     const cacheKey = buildCacheKey(input.lat, input.lng, maxEvents, input.zoom)
 
     const cached = await this.cache.get(cacheKey)
@@ -34,12 +43,6 @@ export class TimelineServiceImpl implements TimelineService {
       const payload = JSON.parse(cached.payload) as TimelineResponse
       return { ...payload, cacheHit: true }
     }
-
-    const location = await this.geocodingProvider.reverseGeocode({
-      lat: input.lat,
-      lng: input.lng,
-      zoom: input.zoom,
-    })
 
     const rawEvents = await this.llmProvider.generateTimeline({
       lat: input.lat,

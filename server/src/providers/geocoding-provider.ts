@@ -10,6 +10,7 @@ export interface GeocodedLocation {
   region?: string
   country?: string
   pointOfInterest?: string
+  placeTypes: string[]
 }
 
 export interface GeocodingProvider {
@@ -126,5 +127,6 @@ function normalizeGeocodeResult(
     region,
     country,
     pointOfInterest,
+    placeTypes: primary.types,
   }
 }

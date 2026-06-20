@@ -2,8 +2,7 @@ import { Router } from 'express'
 
 import type { TimelineService } from '../services/timeline-service.js'
 
-const MIN_EVENTS = 1
-const MAX_EVENTS = 20
+import { MIN_EVENTS, MAX_EVENTS } from '../lib/event-count.js'
 
 export function registerTimelineRoutes(router: Router, service: TimelineService): void {
   router.post('/timeline', async (req, res, next) => {

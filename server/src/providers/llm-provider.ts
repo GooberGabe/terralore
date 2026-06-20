@@ -94,9 +94,7 @@ export class AnthropicLlmProvider implements LlmProvider {
   }
 
   async generateTimeline(input: TimelinePromptInput): Promise<RankedHistoricalEvent[]> {
-    const locationParts = [input.city, input.region, input.country].filter(Boolean)
-    const locationContext =
-      locationParts.length > 0 ? `${input.placeLabel} (${locationParts.join(', ')})` : input.placeLabel
+    const locationContext = buildLocationContext(input)
     const poiLine = input.pointOfInterest
       ? `  Point of Interest: ${input.pointOfInterest}\n`
       : ''
@@ -175,4 +173,34 @@ function zoomToSpecificityInstruction(zoom: number | undefined): string {
     return 'Focus on hyperlocal history — specific neighborhoods, districts, historical streets, and known landmarks at or near this exact location.'
   }
   return 'Focus on the specific building, monument, park, institution, or site at or nearest to these exact coordinates. Identify what is physically present at this location and describe its history in detail — when it was built or established, notable events that occurred there, and its historical significance.'
+}
+
+/**
+ * Builds the location label passed to the LLM, stripping detail to match the zoom scope.
+ *
+ * At low zoom the geocoder often returns a sub-regional name (e.g. "Great Basin, Nevada, USA")
+ * which anchors the LLM to that place even when the user expects country-level history.
+ * We fix this by only exposing the level of granularity that matches the current scope:
+ *   world/continental  → country only
+ *   national           → country only (coordinates already establish continent)
+ *   regional           → region + country
+ *   city+              → full placeLabel with all components
+ */
+function buildLocationContext(input: TimelinePromptInput): string {
+  const zoom = input.zoom
+
+  if (zoom === undefined || zoom <= 5) {
+    // World / national scope — only the country name matters
+    return input.country ?? input.placeLabel
+  }
+
+  if (zoom <= 8) {
+    // Regional scope — region + country, no street-level detail
+    const parts = [input.region, input.country].filter(Boolean)
+    return parts.length > 0 ? parts.join(', ') : input.placeLabel
+  }
+
+  // City and below — use the full geocoded label with all components
+  const parts = [input.city, input.region, input.country].filter(Boolean)
+  return parts.length > 0 ? `${input.placeLabel} (${parts.join(', ')})` : input.placeLabel
 }
