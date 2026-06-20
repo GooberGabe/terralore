@@ -80,7 +80,6 @@ const POI_TYPES = new Set([
   'point_of_interest',
   'natural_feature',
   'park',
-  'premise',
   'tourist_attraction',
   'museum',
   'place_of_worship',
@@ -109,15 +108,25 @@ function normalizeGeocodeResult(
   const region = getComponent(components, 'administrative_area_level_1')
   const country = getComponent(components, 'country')
 
+  // Scan all results for a POI entry — Google often places the street address
+  // at index 0 while the tourist_attraction / establishment result sits further
+  // down. We want the most semantically rich types for scoring and labelling.
+  const poiResult = results.find((r) => r.types.some((t) => POI_TYPES.has(t)))
+
+  // Use POI result types when available and zoom is close enough for it to be
+  // what the user is actually clicking on (≥ 13 ≈ neighborhood level and in).
+  // At wider zooms the primary result's administrative types are more relevant.
+  const placeTypes =
+    poiResult !== undefined && zoom !== undefined && zoom >= 13
+      ? poiResult.types
+      : primary.types
+
   let pointOfInterest: string | undefined
-  if (zoom !== undefined && zoom > 13) {
-    const poiResult = results.find((r) => r.types.some((t) => POI_TYPES.has(t)))
-    if (poiResult) {
-      const firstName = poiResult.formatted_address.split(',')[0].trim()
-      // Only use if it looks like a named place, not a bare street number
-      if (firstName && !/^\d+\s/.test(firstName) && !/^\d+$/.test(firstName)) {
-        pointOfInterest = firstName
-      }
+  if (poiResult !== undefined && zoom !== undefined && zoom >= 13) {
+    const firstName = poiResult.formatted_address.split(',')[0].trim()
+    // Only use if it looks like a named place, not a bare street number
+    if (firstName && !/^\d+\s/.test(firstName) && !/^\d+$/.test(firstName)) {
+      pointOfInterest = firstName
     }
   }
 
@@ -127,6 +136,6 @@ function normalizeGeocodeResult(
     region,
     country,
     pointOfInterest,
-    placeTypes: primary.types,
+    placeTypes,
   }
 }

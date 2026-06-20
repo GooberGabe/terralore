@@ -10,12 +10,9 @@ import './App.css'
 
 const MAPS_API_KEY = import.meta.env['VITE_GOOGLE_MAPS_API_KEY'] as string
 
-const MAX_EVENTS_OPTIONS = [5, 10, 15, 20] as const
-
 function App() {
   const [pin, setPin] = useState<Coordinates | null>(null)
   const [zoom, setZoom] = useState(2)
-  const [maxEvents, setMaxEvents] = useState(10)
   const [timeline, setTimeline] = useState<TimelineResponse | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -34,7 +31,7 @@ function App() {
       setLoading(true)
       setActiveEventIndex(0)
 
-      fetchTimeline({ coordinates: coords, zoom, maxEvents })
+      fetchTimeline({ coordinates: coords, zoom })
         .then((result) => {
           setTimeline(result)
         })
@@ -45,7 +42,7 @@ function App() {
           setLoading(false)
         })
     },
-    [zoom, maxEvents],
+    [zoom],
   )
 
   const handleDotClick = useCallback((index: number) => {
@@ -91,19 +88,6 @@ function App() {
       <aside className="app__sidebar" ref={sidebarRef} onScroll={handleSidebarScroll}>
         <div className="sidebar-header">
           <span className="sidebar-header__title">Terralore</span>
-          <label className="max-events-control">
-            <span>Events</span>
-            <select
-              value={maxEvents}
-              onChange={(e) => setMaxEvents(Number(e.target.value))}
-            >
-              {MAX_EVENTS_OPTIONS.map((n) => (
-                <option key={n} value={n}>
-                  {n}
-                </option>
-              ))}
-            </select>
-          </label>
         </div>
         {pin && <LocationBadge coordinates={pin} location={timeline?.location ?? null} />}
         {timeline && <TimelineBar events={timeline.events} activeIndex={activeEventIndex} onDotClick={handleDotClick} />}

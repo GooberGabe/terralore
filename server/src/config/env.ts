@@ -4,6 +4,8 @@ export interface ServerEnv {
   googleGeocodingApiKey: string
   anthropicApiKey: string
   anthropicModel: string
+  /** When true, skips LLM calls and returns empty events (useful for debugging geocoding/scoring). */
+  debugDryRunLlm: boolean
 }
 
 function parsePort(raw: string | undefined): number {
@@ -39,5 +41,6 @@ export function getServerEnv(): ServerEnv {
     googleGeocodingApiKey: requireEnvVar('GOOGLE_GEOCODING_API_KEY'),
     anthropicApiKey: requireEnvVar('ANTHROPIC_API_KEY'),
     anthropicModel: process.env['ANTHROPIC_MODEL'] ?? 'claude-3-5-sonnet-20241022',
+    debugDryRunLlm: process.env['DEBUG_DRY_RUN_LLM'] === 'true',
   }
 }

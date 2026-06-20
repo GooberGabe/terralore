@@ -2,7 +2,7 @@ import type { HistoricalEvent, LocationContext, TimelineResponse } from '../../.
 import type { TimelineCache } from '../cache/timeline-cache.js'
 import type { GeocodingProvider } from '../providers/geocoding-provider.js'
 import type { LlmProvider } from '../providers/llm-provider.js'
-import { estimateEventCount } from '../lib/event-count.js'
+import { diagnoseEventCount } from '../lib/event-count.js'
 
 export interface BuildTimelineInput {
   lat: number
@@ -18,12 +18,22 @@ export interface TimelineService {
 
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000 // 24 hours
 
+export interface TimelineServiceOptions {
+  /** When true, skips LLM calls and returns empty events. Useful for debugging geocoding and scoring. */
+  dryRunLlm?: boolean
+}
+
 export class TimelineServiceImpl implements TimelineService {
+  private readonly dryRunLlm: boolean
+
   constructor(
     private readonly geocodingProvider: GeocodingProvider,
     private readonly llmProvider: LlmProvider,
     private readonly cache: TimelineCache,
-  ) {}
+    options: TimelineServiceOptions = {},
+  ) {
+    this.dryRunLlm = options.dryRunLlm ?? false
+  }
 
   async buildTimeline(input: BuildTimelineInput): Promise<TimelineResponse> {
     // Geocode first so place types are available for event-count estimation.
@@ -33,10 +43,53 @@ export class TimelineServiceImpl implements TimelineService {
       zoom: input.zoom,
     })
 
-    const maxEvents =
-      input.maxEvents ?? estimateEventCount(location.placeTypes, input.zoom)
+    const isOverride = input.maxEvents !== undefined
+    const diag = diagnoseEventCount(location.placeTypes, input.zoom)
+    const maxEvents = input.maxEvents ?? diag.estimate
+
+    const deviationStr = diag.typeDeviation >= 0 ? `+${diag.typeDeviation}` : `${diag.typeDeviation}`
+    console.debug(
+      '[event-count] placeLabel=%s zoom=%s source=%s maxEvents=%d\n' +
+      '  placeTypes   : %s\n' +
+      '  scoredTypes  : %s\n' +
+      '  winningType  : %s (typeScore=%d  deviation=%s)\n' +
+      '  zoomBase     : %d  typeWeight=%s\n' +
+      '  rawScore     : %d  →  estimate=%d%s',
+      location.placeLabel,
+      input.zoom ?? '(none)',
+      isOverride ? 'override' : 'estimated',
+      maxEvents,
+      location.placeTypes.join(', ') || '(none)',
+      diag.scoredTypes.map((s) => `${s.type}:${s.score}`).join(', ') || '(none)',
+      diag.winningType,
+      diag.typeScore,
+      deviationStr,
+      diag.zoomBase,
+      diag.typeWeight.toFixed(2),
+      diag.rawScore,
+      diag.estimate,
+      isOverride ? `  [overridden → ${maxEvents}]` : '',
+    )
 
     const cacheKey = buildCacheKey(input.lat, input.lng, maxEvents, input.zoom)
+
+    // --- Dry-run mode: return location + scoring data, skip LLM and cache ---
+    if (this.dryRunLlm) {
+      console.debug('[event-count] DRY RUN — LLM call skipped')
+      return {
+        location: {
+          coordinates: { lat: input.lat, lng: input.lng },
+          placeLabel: location.placeLabel,
+          city: location.city,
+          region: location.region,
+          country: location.country,
+          pointOfInterest: location.pointOfInterest,
+        },
+        events: [],
+        generatedAt: new Date().toISOString(),
+        cacheHit: false,
+      }
+    }
 
     const cached = await this.cache.get(cacheKey)
     if (cached) {

@@ -31,7 +31,6 @@
   z-index: 20;
   display: flex;
   align-items: center;
-  justify-content: space-between;
   padding: 10px 16px;
   background: var(--bg);
   border-bottom: 1px solid var(--accent-border);
@@ -44,25 +43,6 @@
   font-style: italic;
   color: var(--accent);
   letter-spacing: 1px;
-}
-
-.max-events-control {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 12px;
-  color: var(--text);
-  cursor: pointer;
-}
-
-.max-events-control select {
-  font-size: 12px;
-  padding: 2px 4px;
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  background: var(--bg);
-  color: var(--text-h);
-  cursor: pointer;
 }
 
 /* ── Timeline bar ────────────────────────────────────────────────── */

@@ -15,7 +15,9 @@ const env = getServerEnv()
 const geocodingProvider = new GoogleGeocodingProvider(env.googleGeocodingApiKey)
 const llmProvider = new AnthropicLlmProvider(env.anthropicApiKey, env.anthropicModel)
 const cache = new InMemoryTimelineCache()
-const timelineService = new TimelineServiceImpl(geocodingProvider, llmProvider, cache)
+const timelineService = new TimelineServiceImpl(geocodingProvider, llmProvider, cache, {
+  dryRunLlm: env.debugDryRunLlm,
+})
 
 const app = express()
 
