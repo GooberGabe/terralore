@@ -33,43 +33,42 @@ const SUBMIT_TOOL_NAME = 'submit_timeline_events'
 
 const TIMELINE_TOOL: Anthropic.Tool = {
   name: SUBMIT_TOOL_NAME,
-  description:
-    'Submit the curated list of historically significant events for the requested location.',
+  description: 'Submit the ranked list of historical events.',
   input_schema: {
     type: 'object',
     properties: {
       events: {
         type: 'array',
-        description: 'Ranked list of historically significant events, most significant first.',
+        description: 'Historical events, most significant first.',
         items: {
           type: 'object',
           properties: {
-            title: { type: 'string', description: 'Short title of the historical event.' },
+            title: { type: 'string', description: 'Event title.' },
             summary: {
               type: 'string',
-              description: 'Concise description of the event (2-3 sentences).',
+              description: '1–2 sentence description.',
             },
             dateLabel: {
               type: 'string',
-              description: 'Human-readable date string (e.g., "circa 1200 BCE", "1944", "May 1453").',
+              description: 'Human-readable date (e.g. "circa 1200 BCE", "May 1453").',
             },
             year: {
               type: 'number',
-              description:
-                'The approximate year of the event as an integer. Use negative numbers for BCE (e.g., -44 for 44 BCE). Used for chronological ordering.',
+              description: 'Approximate year as integer; negative for BCE.',
             },
             significanceScore: {
               type: 'number',
-              description: 'Historical significance score from 0.0 to 1.0.',
+              description: 'Significance 0.0–1.0.',
             },
             confidence: {
               type: 'number',
-              description: 'Confidence in historical accuracy from 0.0 to 1.0.',
+              description: 'Accuracy confidence 0.0–1.0.',
             },
             sources: {
               type: 'array',
               items: { type: 'string' },
-              description: 'Reference sources (book titles, Wikipedia article names, etc.).',
+              maxItems: 2,
+              description: 'Up to 2 reference sources (e.g. book titles, Wikipedia articles).',
             },
           },
           required: ['title', 'summary', 'dateLabel', 'year', 'significanceScore', 'confidence', 'sources'],
@@ -102,17 +101,12 @@ export class AnthropicLlmProvider implements LlmProvider {
     const specificityInstruction = zoomToSpecificityInstruction(input.zoom)
 
     const userPrompt =
-      `Generate a timeline of up to ${input.maxEvents} historically significant events for this exact location:\n` +
+      `Return up to ${input.maxEvents} historically significant events for:\n` +
       `  Name: ${locationContext}\n` +
       `  Coordinates: ${input.lat.toFixed(4)}°, ${input.lng.toFixed(4)}°\n` +
       poiLine +
       `\n` +
-      `CRITICAL: Only include events that genuinely occurred at or directly relate to this specific geographic location. ` +
-      `Do not substitute, conflate, or draw from a different region because this location seems unfamiliar or sparsely documented. ` +
-      `If fewer significant events are known for this exact area, return only those — do not pad with events from elsewhere.\n\n` +
-      `${specificityInstruction} ` +
-      `Rank events by historical significance. ` +
-      `Include a mix of eras when applicable.`
+      `${specificityInstruction} Rank by significance. Include a mix of eras where applicable.`
 
     const controller = new AbortController()
     const timer = setTimeout(() => controller.abort(), LLM_TIMEOUT_MS)
@@ -122,13 +116,9 @@ export class AnthropicLlmProvider implements LlmProvider {
       message = await this.client.messages.create(
         {
           model: this.model,
-          max_tokens: 4096,
+          max_tokens: 2048,
           system:
-            'You are a historical research assistant. Your job is to provide accurate historical events strictly for the geographic location given by the user. ' +
-            'You must NEVER substitute a different location — even if the requested location has sparse historical documentation, remote terrain, or is largely uninhabited. ' +
-            'If a location has limited recorded history, return only the events you can genuinely attribute to it; do not borrow events from nearby or more famous places. ' +
-            'Only include events with a reasonable confidence in their historical accuracy. ' +
-            'You must use the provided tool to submit your response.',
+            'You are a historical research assistant. Return accurate events strictly for the exact location provided — never substitute or borrow from nearby places, even for remote or sparsely documented locations. Return only what you can genuinely attribute to this location. Use the provided tool to submit.',
           tools: [TIMELINE_TOOL],
           tool_choice: { type: 'tool', name: SUBMIT_TOOL_NAME },
           messages: [{ role: 'user', content: userPrompt }],

@@ -59,6 +59,7 @@ const TYPE_SCORES: Readonly<Record<string, number>> = {
   establishment: 3,
   route: 2,                         // street / road
   premise: 2,
+  subpremise: 2,
   plus_code: 1,                     // no recognized place — bare grid coordinate
 }
 
