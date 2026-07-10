@@ -5,7 +5,8 @@ import { LocationBadge } from './components/LocationBadge.js'
 import { TimelineBar } from './components/TimelineBar.js'
 import { TimelinePanel } from './components/TimelinePanel.js'
 import { fetchTimeline } from './services/timelineApi.js'
-import type { Coordinates, TimelineResponse } from './types/index.js'
+import type { Coordinates, TimelineResponse, TimeRange } from './types/index.js'
+import iconUrl from './assets/icon.svg'
 import './App.css'
 
 const MAPS_API_KEY = import.meta.env['VITE_GOOGLE_MAPS_API_KEY'] as string
@@ -13,6 +14,9 @@ const MAPS_API_KEY = import.meta.env['VITE_GOOGLE_MAPS_API_KEY'] as string
 function App() {
   const [pin, setPin] = useState<Coordinates | null>(null)
   const [zoom, setZoom] = useState(2)
+  const [timeRangeMode, setTimeRangeMode] = useState<'all' | 'range'>('all')
+  const [startYear, setStartYear] = useState('')
+  const [endYear, setEndYear] = useState('')
   const [timeline, setTimeline] = useState<TimelineResponse | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -31,7 +35,12 @@ function App() {
       setLoading(true)
       setActiveEventIndex(0)
 
-      fetchTimeline({ coordinates: coords, zoom })
+      const timeRange: TimeRange =
+        timeRangeMode === 'range' && startYear !== '' && endYear !== ''
+          ? { type: 'range', startYear: parseInt(startYear, 10), endYear: parseInt(endYear, 10) }
+          : { type: 'all' }
+
+      fetchTimeline({ coordinates: coords, zoom, timeRange })
         .then((result) => {
           setTimeline(result)
         })
@@ -42,7 +51,7 @@ function App() {
           setLoading(false)
         })
     },
-    [zoom],
+    [zoom, timeRangeMode, startYear, endYear],
   )
 
   const handleDotClick = useCallback((index: number) => {
@@ -87,7 +96,38 @@ function App() {
 
       <aside className="app__sidebar" ref={sidebarRef} onScroll={handleSidebarScroll}>
         <div className="sidebar-header">
-          <span className="sidebar-header__title">Terralore</span>
+          <span className="sidebar-header__title">
+            <img src={iconUrl} alt="" className="sidebar-header__icon" aria-hidden="true" />
+            Terralore
+          </span>
+          <div className="time-range-control">
+            <select
+              value={timeRangeMode}
+              onChange={(e) => setTimeRangeMode(e.target.value as 'all' | 'range')}
+            >
+              <option value="all">All time</option>
+              <option value="range">Custom</option>
+            </select>
+            {timeRangeMode === 'range' && (
+              <>
+                <input
+                  className="time-range-control__year"
+                  type="number"
+                  placeholder="From"
+                  value={startYear}
+                  onChange={(e) => setStartYear(e.target.value)}
+                />
+                <span className="time-range-control__sep">–</span>
+                <input
+                  className="time-range-control__year"
+                  type="number"
+                  placeholder="To"
+                  value={endYear}
+                  onChange={(e) => setEndYear(e.target.value)}
+                />
+              </>
+            )}
+          </div>
         </div>
         {pin && <LocationBadge coordinates={pin} location={timeline?.location ?? null} />}
         {timeline && <TimelineBar events={timeline.events} activeIndex={activeEventIndex} onDotClick={handleDotClick} />}

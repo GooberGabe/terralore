@@ -1,4 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk'
+import type { TimeRange } from '../../../src/types/index.js'
 
 export interface TimelinePromptInput {
   lat: number
@@ -10,6 +11,7 @@ export interface TimelinePromptInput {
   pointOfInterest?: string
   maxEvents: number
   zoom?: number
+  timeRange?: TimeRange
 }
 
 export interface RankedHistoricalEvent {
@@ -97,6 +99,9 @@ export class AnthropicLlmProvider implements LlmProvider {
     const poiLine = input.pointOfInterest
       ? `  Point of Interest: ${input.pointOfInterest}\n`
       : ''
+    const timeRangeLine = input.timeRange?.type === 'range'
+      ? `  Period: ${input.timeRange.startYear} to ${input.timeRange.endYear}\n`
+      : ''
 
     const specificityInstruction = zoomToSpecificityInstruction(input.zoom)
 
@@ -105,6 +110,7 @@ export class AnthropicLlmProvider implements LlmProvider {
       `  Name: ${locationContext}\n` +
       `  Coordinates: ${input.lat.toFixed(4)}°, ${input.lng.toFixed(4)}°\n` +
       poiLine +
+      timeRangeLine +
       `\n` +
       `${specificityInstruction} Rank by significance. Include a mix of eras where applicable.`
 

@@ -1,6 +1,6 @@
-import type { HistoricalEvent, LocationContext, TimelineResponse } from '../../../src/types/index.js'
+import type { HistoricalEvent, LocationContext, TimelineResponse, TimeRange } from '../../../src/types/index.js'
 import type { TimelineCache } from '../cache/timeline-cache.js'
-import type { GeocodingProvider } from '../providers/geocoding-provider.js'
+import type { GeocodedLocation, GeocodingProvider } from '../providers/geocoding-provider.js'
 import type { LlmProvider } from '../providers/llm-provider.js'
 import { diagnoseEventCount } from '../lib/event-count.js'
 
@@ -10,21 +10,29 @@ export interface BuildTimelineInput {
   locale?: string
   maxEvents?: number
   zoom?: number
+  timeRange?: TimeRange
 }
 
 export interface TimelineService {
   buildTimeline(input: BuildTimelineInput): Promise<TimelineResponse>
 }
 
-const CACHE_TTL_MS = 24 * 60 * 60 * 1000 // 24 hours
+const CACHE_TTL_MS = 24 * 60 * 60 * 1000      // 24 hours — timeline entries
+const GEO_CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000 // 7 days  — geocoding entries (data is stable)
 
 export interface TimelineServiceOptions {
   /** When true, skips LLM calls and returns empty events. Useful for debugging geocoding and scoring. */
   dryRunLlm?: boolean
+  /**
+   * Separate cache store for geocoding results. Defaults to the timeline cache store when omitted,
+   * using a distinct key prefix to avoid collisions. Provide a dedicated instance for independent TTL control.
+   */
+  geocodingCache?: TimelineCache
 }
 
 export class TimelineServiceImpl implements TimelineService {
   private readonly dryRunLlm: boolean
+  private readonly geocodingCache: TimelineCache
 
   constructor(
     private readonly geocodingProvider: GeocodingProvider,
@@ -33,15 +41,32 @@ export class TimelineServiceImpl implements TimelineService {
     options: TimelineServiceOptions = {},
   ) {
     this.dryRunLlm = options.dryRunLlm ?? false
+    this.geocodingCache = options.geocodingCache ?? cache
   }
 
   async buildTimeline(input: BuildTimelineInput): Promise<TimelineResponse> {
-    // Geocode first so place types are available for event-count estimation.
-    const location = await this.geocodingProvider.reverseGeocode({
-      lat: input.lat,
-      lng: input.lng,
-      zoom: input.zoom,
-    })
+    // --- Geocoding (with cache) ---
+    // Check geocoding cache before calling the provider so repeated requests
+    // for the same location+scope never pay the geocoding API cost twice.
+    const geoCacheKey = buildGeoCacheKey(input.lat, input.lng, input.zoom)
+    const cachedGeo = await this.geocodingCache.get(geoCacheKey)
+    let location: GeocodedLocation
+    if (cachedGeo) {
+      location = JSON.parse(cachedGeo.payload) as GeocodedLocation
+    } else {
+      location = await this.geocodingProvider.reverseGeocode({
+        lat: input.lat,
+        lng: input.lng,
+        zoom: input.zoom,
+      })
+      const geoNow = Date.now()
+      await this.geocodingCache.set({
+        key: geoCacheKey,
+        payload: JSON.stringify(location),
+        cachedAt: new Date(geoNow).toISOString(),
+        expiresAt: new Date(geoNow + GEO_CACHE_TTL_MS).toISOString(),
+      })
+    }
 
     const isOverride = input.maxEvents !== undefined
     const diag = diagnoseEventCount(location.placeTypes, input.zoom)
@@ -71,7 +96,7 @@ export class TimelineServiceImpl implements TimelineService {
       isOverride ? `  [overridden → ${maxEvents}]` : '',
     )
 
-    const cacheKey = buildCacheKey(input.lat, input.lng, maxEvents, input.zoom)
+    const cacheKey = buildCacheKey(input.lat, input.lng, maxEvents, input.zoom, input.timeRange, input.locale)
 
     // --- Dry-run mode: return location + scoring data, skip LLM and cache ---
     if (this.dryRunLlm) {
@@ -107,6 +132,7 @@ export class TimelineServiceImpl implements TimelineService {
       pointOfInterest: location.pointOfInterest,
       maxEvents,
       zoom: input.zoom,
+      timeRange: input.timeRange,
     })
 
     const events: HistoricalEvent[] = rawEvents.map((e, idx) => ({
@@ -162,13 +188,33 @@ export class TimelineServiceImpl implements TimelineService {
  *   l = local/neighborhood (zoom 12-14)
  *   p = point-of-interest  (zoom 15+)
  */
-function buildCacheKey(lat: number, lng: number, maxEvents: number, zoom: number | undefined): string {
+function buildGeoCacheKey(lat: number, lng: number, zoom: number | undefined): string {
   const bucket = zoomToScopeBucket(zoom)
   const precision = zoomToCoordPrecision(zoom)
   const factor = Math.pow(10, precision)
   const roundedLat = Math.round(lat * factor) / factor
   const roundedLng = Math.round(lng * factor) / factor
-  return `timeline:${roundedLat}:${roundedLng}:${maxEvents}:${bucket}`
+  return `geo:${roundedLat}:${roundedLng}:${bucket}`
+}
+
+function buildCacheKey(
+  lat: number,
+  lng: number,
+  maxEvents: number,
+  zoom: number | undefined,
+  timeRange: TimeRange | undefined,
+  locale: string | undefined,
+): string {
+  const bucket = zoomToScopeBucket(zoom)
+  const precision = zoomToCoordPrecision(zoom)
+  const factor = Math.pow(10, precision)
+  const roundedLat = Math.round(lat * factor) / factor
+  const roundedLng = Math.round(lng * factor) / factor
+  const rangeSegment = timeRange?.type === 'range'
+    ? `:${timeRange.startYear}-${timeRange.endYear}`
+    : ':all'
+  const localeSegment = locale ? `:${locale}` : ':default'
+  return `timeline:${roundedLat}:${roundedLng}:${maxEvents}:${bucket}${rangeSegment}${localeSegment}`
 }
 
 function zoomToScopeBucket(zoom: number | undefined): string {

@@ -5,6 +5,10 @@ export interface Coordinates {
   lng: number
 }
 
+export type TimeRange =
+  | { type: 'all' }
+  | { type: 'range'; startYear: number; endYear: number }
+
 export interface LocationContext {
   coordinates: Coordinates
   city?: string
@@ -32,6 +36,7 @@ export interface TimelineRequest {
   locale?: string
   maxEvents?: number
   zoom?: number
+  timeRange?: TimeRange
 }
 
 export interface TimelineResponse {

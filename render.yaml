@@ -1,0 +1,39 @@
+services:
+  # ── Express API ─────────────────────────────────────────────────────────────
+  - type: web
+    name: terralore-server
+    runtime: node
+    region: oregon
+    plan: free
+    buildCommand: npm install -g pnpm && pnpm install && pnpm build:server
+    startCommand: node dist-server/server/src/index.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: GOOGLE_GEOCODING_API_KEY
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: ANTHROPIC_MODEL
+        value: claude-3-5-sonnet-20241022
+      - key: ALLOWED_ORIGINS
+        # Set to your Render Static Site URL, e.g.: https://terralore-client.onrender.com
+        sync: false
+
+  # ── React Frontend (Static Site) ────────────────────────────────────────────
+  - type: static
+    name: terralore-client
+    buildCommand: npm install -g pnpm && pnpm install && pnpm build
+    staticPublishPath: dist
+    envVars:
+      - key: VITE_GOOGLE_MAPS_API_KEY
+        sync: false
+      - key: VITE_API_BASE_URL
+        # Set to your Render Web Service URL, e.g.: https://terralore-server.onrender.com
+        sync: false
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html

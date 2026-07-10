@@ -26,6 +26,7 @@ export async function fetchTimeline(request: TimelineRequest): Promise<TimelineR
       maxEvents: request.maxEvents,
       locale: request.locale,
       zoom: request.zoom,
+      timeRange: request.timeRange,
     }),
   })
 

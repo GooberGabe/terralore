@@ -1,5 +1,6 @@
 import { Router } from 'express'
 
+import type { TimeRange } from '../../../src/types/index.js'
 import type { TimelineService } from '../services/timeline-service.js'
 
 import { MIN_EVENTS, MAX_EVENTS } from '../lib/event-count.js'
@@ -47,12 +48,40 @@ export function registerTimelineRoutes(router: Router, service: TimelineService)
         }
       }
 
+      const { timeRange } = body
+      let validatedTimeRange: TimeRange | undefined
+      if (timeRange !== undefined) {
+        if (typeof timeRange !== 'object' || timeRange === null) {
+          res.status(400).json({ error: 'timeRange must be an object' })
+          return
+        }
+        const tr = timeRange as Record<string, unknown>
+        if (tr['type'] === 'range') {
+          const { startYear, endYear } = tr
+          if (
+            typeof startYear !== 'number' || !Number.isInteger(startYear) ||
+            typeof endYear !== 'number' || !Number.isInteger(endYear) ||
+            startYear >= endYear
+          ) {
+            res.status(400).json({ error: 'timeRange.startYear and endYear must be integers with startYear < endYear' })
+            return
+          }
+          validatedTimeRange = { type: 'range', startYear, endYear }
+        } else if (tr['type'] === 'all') {
+          validatedTimeRange = { type: 'all' }
+        } else {
+          res.status(400).json({ error: 'timeRange.type must be "all" or "range"' })
+          return
+        }
+      }
+
       const result = await service.buildTimeline({
         lat,
         lng,
         maxEvents: maxEvents as number | undefined,
         locale: locale as string | undefined,
         zoom: zoom as number | undefined,
+        timeRange: validatedTimeRange,
       })
 
       res.status(200).json(result)

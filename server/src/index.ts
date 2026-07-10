@@ -14,14 +14,22 @@ const env = getServerEnv()
 
 const geocodingProvider = new GoogleGeocodingProvider(env.googleGeocodingApiKey)
 const llmProvider = new AnthropicLlmProvider(env.anthropicApiKey, env.anthropicModel)
-const cache = new InMemoryTimelineCache()
-const timelineService = new TimelineServiceImpl(geocodingProvider, llmProvider, cache, {
+const geoCache = new InMemoryTimelineCache()
+const timelineCache = new InMemoryTimelineCache()
+const timelineService = new TimelineServiceImpl(geocodingProvider, llmProvider, timelineCache, {
   dryRunLlm: env.debugDryRunLlm,
+  geocodingCache: geoCache,
 })
 
 const app = express()
 
-app.use(cors())
+app.use(cors({
+  origin: env.allowedOrigins.length > 0
+    ? env.allowedOrigins
+    : env.nodeEnv === 'production'
+      ? false
+      : true,
+}))
 app.use(express.json())
 
 app.get('/health', (_req, res) => {
