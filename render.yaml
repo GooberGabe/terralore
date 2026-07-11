@@ -23,8 +23,9 @@ services:
         sync: false
 
   # ── React Frontend (Static Site) ────────────────────────────────────────────
-  - type: static
+  - type: web
     name: terralore-client
+    runtime: static
     buildCommand: npm install -g pnpm && pnpm install && pnpm build
     staticPublishPath: dist
     envVars:
