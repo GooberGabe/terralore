@@ -6,7 +6,6 @@ interface TimelineCardProps {
 
 export function TimelineCard({ event }: TimelineCardProps) {
   const significancePct = Math.round(event.significanceScore * 100)
-  const confidencePct = Math.round(event.confidence * 100)
 
   return (
     <article className="timeline-card">
@@ -15,9 +14,6 @@ export function TimelineCard({ event }: TimelineCardProps) {
         <div className="timeline-card__scores">
           <span className="timeline-card__score" title="Significance">
             ★ {significancePct}%
-          </span>
-          <span className="timeline-card__score timeline-card__score--confidence" title="Confidence">
-            ✓ {confidencePct}%
           </span>
         </div>
       </header>

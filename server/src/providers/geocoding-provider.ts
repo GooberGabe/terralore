@@ -7,6 +7,7 @@ export interface ReverseGeocodeInput {
 export interface GeocodedLocation {
   placeLabel: string
   city?: string
+  neighborhood?: string
   region?: string
   country?: string
   pointOfInterest?: string
@@ -105,6 +106,9 @@ function normalizeGeocodeResult(
     getComponent(components, 'locality') ??
     getComponent(components, 'sublocality') ??
     getComponent(components, 'administrative_area_level_2')
+  const neighborhood =
+    getComponent(components, 'neighborhood') ??
+    getComponent(components, 'sublocality_level_1')
   const region = getComponent(components, 'administrative_area_level_1')
   const country = getComponent(components, 'country')
 
@@ -133,6 +137,7 @@ function normalizeGeocodeResult(
   return {
     placeLabel: primary.formatted_address,
     city,
+    neighborhood,
     region,
     country,
     pointOfInterest,

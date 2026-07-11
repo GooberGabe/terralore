@@ -96,7 +96,7 @@ export class TimelineServiceImpl implements TimelineService {
       isOverride ? `  [overridden → ${maxEvents}]` : '',
     )
 
-    const cacheKey = buildCacheKey(input.lat, input.lng, maxEvents, input.zoom, input.timeRange, input.locale)
+    const cacheKey = buildTimelineCacheKey(location, input.zoom, input.timeRange, input.locale)
 
     // --- Dry-run mode: return location + scoring data, skip LLM and cache ---
     if (this.dryRunLlm) {
@@ -118,9 +118,11 @@ export class TimelineServiceImpl implements TimelineService {
 
     const cached = await this.cache.get(cacheKey)
     if (cached) {
+      console.debug('[cache] HIT  key=%s', cacheKey)
       const payload = JSON.parse(cached.payload) as TimelineResponse
       return { ...payload, cacheHit: true }
     }
+    console.debug('[cache] MISS key=%s', cacheKey)
 
     const rawEvents = await this.llmProvider.generateTimeline({
       lat: input.lat,
@@ -197,24 +199,71 @@ function buildGeoCacheKey(lat: number, lng: number, zoom: number | undefined): s
   return `geo:${roundedLat}:${roundedLng}:${bucket}`
 }
 
-function buildCacheKey(
-  lat: number,
-  lng: number,
-  maxEvents: number,
+/**
+ * Builds the timeline cache key from the **structured semantic fields** returned
+ * by geocoding (country, region, city, pointOfInterest) rather than from raw
+ * coordinates or the formatted_address string.
+ *
+ * Why not coordinates? Two clicks 800 m apart in the same city can straddle a
+ * rounding boundary and produce different coordinate keys.
+ *
+ * Why not placeLabel (formatted_address)? Google returns the most-specific
+ * address first, so nearby clicks land on different streets and produce
+ * different formatted_address strings ("Rue de Rivoli…" vs "Blvd Haussmann…")
+ * even though both are queries about Paris.
+ *
+ * Why not maxEvents? The primary geocode result type varies by click location
+ * (route vs establishment vs locality), shifting the estimate by 1–2 and
+ * fragmenting the key unnecessarily. Since maxEvents is an internal estimate
+ * (not user-supplied), omitting it from the key is safe.
+ *
+ * Scope bucket is included because the same city at different zoom levels
+ * (regional vs city vs local) produces semantically different queries.
+ */
+function buildTimelineCacheKey(
+  location: GeocodedLocation,
   zoom: number | undefined,
   timeRange: TimeRange | undefined,
   locale: string | undefined,
 ): string {
   const bucket = zoomToScopeBucket(zoom)
-  const precision = zoomToCoordPrecision(zoom)
-  const factor = Math.pow(10, precision)
-  const roundedLat = Math.round(lat * factor) / factor
-  const roundedLng = Math.round(lng * factor) / factor
+  // Normalize: strip diacritics, lowercase, collapse non-alphanumeric to '_'
+  const n = (s: string | undefined): string =>
+    (s ?? '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '_')
+      .replace(/^_+|_+$/g, '')
+
+  // At wide zoom levels, clicking anywhere within a country still geocodes to
+  // a specific city/region based on exact coordinates, even though the user
+  // is querying about the country/region as a whole. Include only the fields
+  // that are semantically relevant at each zoom scope.
+  let placeKey: string
+  switch (bucket) {
+    case 'w': // world (≤2): country only (or empty for ocean)
+    case 'n': // national (3–5): country only
+      placeKey = n(location.country)
+      break
+    case 'r': // regional (6–8): country + region
+      placeKey = `${n(location.country)}:${n(location.region)}`
+      break
+    case 'c': // city (9–11): country + region + city
+      placeKey = `${n(location.country)}:${n(location.region)}:${n(location.city)}`
+      break
+    case 'l': // local (12–14): country + region + city + neighborhood
+      placeKey = `${n(location.country)}:${n(location.region)}:${n(location.city)}:${n(location.neighborhood)}`
+      break
+    default: // poi (15+): country + region + city + neighborhood + poi
+      placeKey = `${n(location.country)}:${n(location.region)}:${n(location.city)}:${n(location.neighborhood)}:${n(location.pointOfInterest)}`
+      break
+  }
   const rangeSegment = timeRange?.type === 'range'
     ? `:${timeRange.startYear}-${timeRange.endYear}`
     : ':all'
   const localeSegment = locale ? `:${locale}` : ':default'
-  return `timeline:${roundedLat}:${roundedLng}:${maxEvents}:${bucket}${rangeSegment}${localeSegment}`
+  return `timeline:${placeKey}:${bucket}${rangeSegment}${localeSegment}`
 }
 
 function zoomToScopeBucket(zoom: number | undefined): string {

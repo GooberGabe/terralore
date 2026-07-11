@@ -11,6 +11,15 @@ import './App.css'
 
 const MAPS_API_KEY = import.meta.env['VITE_GOOGLE_MAPS_API_KEY'] as string
 
+function zoomToScopeLabel(zoom: number): string {
+  if (zoom <= 2) return 'World'
+  if (zoom <= 5) return 'National'
+  if (zoom <= 8) return 'Regional'
+  if (zoom <= 11) return 'City'
+  if (zoom <= 14) return 'Local'
+  return 'Point of Interest'
+}
+
 function App() {
   const [pin, setPin] = useState<Coordinates | null>(null)
   const [zoom, setZoom] = useState(2)
@@ -98,7 +107,10 @@ function App() {
         <div className="sidebar-header">
           <span className="sidebar-header__title">
             <img src={iconUrl} alt="" className="sidebar-header__icon" aria-hidden="true" />
-            Terralore
+            <span className="sidebar-header__title-text">
+              Terralore
+              <span className="sidebar-header__scope">{zoomToScopeLabel(zoom)}</span>
+            </span>
           </span>
           <div className="time-range-control">
             <select
