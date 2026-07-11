@@ -10,6 +10,7 @@ import iconUrl from './assets/icon.svg'
 import './App.css'
 
 const MAPS_API_KEY = import.meta.env['VITE_GOOGLE_MAPS_API_KEY'] as string
+const SIMULATE_ERROR = import.meta.env['VITE_DEBUG_SIMULATE_ERROR'] === 'true'
 
 function zoomToScopeLabel(zoom: number): string {
   if (zoom <= 2) return 'World'
@@ -43,6 +44,12 @@ function App() {
       setError(null)
       setLoading(true)
       setActiveEventIndex(0)
+
+      if (SIMULATE_ERROR) {
+        setError('Provider unreachable: the timeline service did not respond in time.')
+        setLoading(false)
+        return
+      }
 
       const timeRange: TimeRange =
         timeRangeMode === 'range' && startYear !== '' && endYear !== ''

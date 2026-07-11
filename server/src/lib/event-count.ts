@@ -33,13 +33,13 @@ export interface EventCountDiagnostic {
   /** 0–1 weight applied to typeDeviation; increases as zoom increases. */
   typeWeight: number
   rawScore: number
-  /** Final value after clamping to [MIN_EVENTS, MAX_EVENTS]. */
+  /** Final value after clamping to [MIN_EVENTS, MAX_EVENTS] */
   estimate: number
 }
 
 /**
- * Base scores by Google Geocoding place type.
- * Higher score = historically richer category = more events.
+ * Base scores by Google Geocoding place type
+ * Higher score = historically richer category = more events
  */
 const TYPE_SCORES: Readonly<Record<string, number>> = {
   country: 11,
@@ -48,7 +48,7 @@ const TYPE_SCORES: Readonly<Record<string, number>> = {
   locality: 7,                      // city / town
   sublocality: 5,
   sublocality_level_1: 5,
-  neighborhood: 4,
+  neighborhood: 4,                  // granularity signal, not LLM context
   tourist_attraction: 7,            // explicitly notable places
   natural_feature: 6,               // mountains, rivers, coastlines, etc.
   park: 5,
@@ -60,7 +60,7 @@ const TYPE_SCORES: Readonly<Record<string, number>> = {
   route: 2,                         // street / road
   premise: 2,
   subpremise: 2,
-  plus_code: 1,                     // no recognized place — bare grid coordinate
+  plus_code: 1,                     // no recognized place, bare grid coordinate
 }
 
 const DEFAULT_TYPE_SCORE = 5

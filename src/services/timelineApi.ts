@@ -16,6 +16,7 @@ export class TimelineApiError extends Error {
   }
 }
 
+// API call to fetch timeline data
 export async function fetchTimeline(request: TimelineRequest): Promise<TimelineResponse> {
   const response = await fetch(`${API_BASE}/api/timeline`, {
     method: 'POST',

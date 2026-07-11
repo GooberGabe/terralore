@@ -227,7 +227,7 @@ function buildTimelineCacheKey(
   locale: string | undefined,
 ): string {
   const bucket = zoomToScopeBucket(zoom)
-  // Normalize: strip diacritics, lowercase, collapse non-alphanumeric to '_'
+  // Normalize
   const n = (s: string | undefined): string =>
     (s ?? '')
       .normalize('NFD')

@@ -17,7 +17,7 @@ services:
       - key: ANTHROPIC_API_KEY
         sync: false
       - key: ANTHROPIC_MODEL
-        value: claude-3-5-sonnet-20241022
+        value: claude-sonnet-4-6
       - key: ALLOWED_ORIGINS
         # Set to your Render Static Site URL, e.g.: https://terralore-client.onrender.com
         sync: false
