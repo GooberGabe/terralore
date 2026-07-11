@@ -5,7 +5,7 @@ services:
     runtime: node
     region: oregon
     plan: free
-    buildCommand: npx --yes pnpm@9 install && npx --yes pnpm@9 run build:server
+    buildCommand: npx --yes pnpm@11 install && npx --yes pnpm@11 run build:server
     startCommand: node dist-server/server/src/index.js
     envVars:
       - key: NODE_ENV
@@ -26,7 +26,7 @@ services:
   - type: web
     name: terralore-client
     runtime: static
-    buildCommand: npx --yes pnpm@9 install && npx --yes pnpm@9 run build
+    buildCommand: npx --yes pnpm@11 install && npx --yes pnpm@11 run build
     staticPublishPath: dist
     envVars:
       - key: VITE_GOOGLE_MAPS_API_KEY
