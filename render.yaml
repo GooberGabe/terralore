@@ -5,7 +5,7 @@ services:
     runtime: node
     region: oregon
     plan: free
-    buildCommand: corepack enable && pnpm install && pnpm build:server
+    buildCommand: npx --yes pnpm@9 install && npx --yes pnpm@9 run build:server
     startCommand: node dist-server/server/src/index.js
     envVars:
       - key: NODE_ENV
